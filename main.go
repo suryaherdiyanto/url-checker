@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+
+	"golang.org/x/net/html"
 )
 
 func main() {
@@ -23,5 +26,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Hello world")
+	fmt.Println("Fetching: " + url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(res.Status)
+
+	doc, err := html.Parse(res.Body)
+	fmt.Println(doc)
+
 }
