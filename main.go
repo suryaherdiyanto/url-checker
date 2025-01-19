@@ -3,16 +3,17 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
-
 	"net/url"
+	"os"
+	"time"
 
 	"golang.org/x/net/html"
 )
 
 type Link struct {
-	Url     string
-	Content string
+	Url      string
+	Status   int
+	Duration time.Duration
 }
 
 func TraverseDescendants(n *html.Node, fn func(*html.Node)) {
@@ -59,9 +60,8 @@ func main() {
 	}
 
 	fmt.Println("Fetching: " + inputUrl)
+	fmt.Println("")
 	parsedUrl, _ := url.Parse(inputUrl)
-	domain := parsedUrl.Host
-	fmt.Println(domain)
 
 	res, err := http.Get(inputUrl)
 	if err != nil {
@@ -74,10 +74,55 @@ func main() {
 		panic(err)
 	}
 
+	var linkChan = make(chan Link, 8)
 	TraverseDescendants(doc, func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
-			attr, _ := GetAttribute(n, "href")
-			fmt.Println(attr)
+			attrUrl, ok := GetAttribute(n, "href")
+			if ok {
+				go func(path string, u *url.URL) {
+					link := path
+					if path[:1] == "/" {
+						link = u.Scheme + "://" + u.Host + path
+					}
+
+					t := time.Now()
+					fmt.Println("Fetching: ", link)
+					res, err := http.Get(link)
+					fmt.Println("")
+
+					if err != nil {
+						panic(err)
+					}
+
+					linkChan <- Link{Url: link, Status: res.StatusCode, Duration: time.Since(t)}
+
+				}(attrUrl, parsedUrl)
+			}
 		}
 	})
+
+	fmt.Println("==================")
+	fmt.Println("==================")
+	fmt.Println("")
+
+	var isBreak bool
+
+	fmt.Printf("Results:")
+	for {
+		if isBreak {
+			close(linkChan)
+			break
+		}
+
+		select {
+		case v := <-linkChan:
+			fmt.Printf("URL: %s, status: %d duration: %v\n", v.Url, v.Status, v.Duration)
+		case <-time.After(2 * time.Second):
+			fmt.Println("================")
+			fmt.Println("Done")
+			isBreak = true
+			break
+		}
+	}
+
 }
