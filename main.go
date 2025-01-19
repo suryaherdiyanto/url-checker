@@ -27,16 +27,46 @@ func TraverseDescendants(n *html.Node, fn func(*html.Node)) {
 
 func GetAttribute(n *html.Node, name string) (string, bool) {
 	for _, attr := range n.Attr {
+
 		if attr.Key == "role" && attr.Val == "button" {
 			continue
 		}
 
-		if attr.Key == name && attr.Val != "#" && attr.Val != "javascript:void(0)" && attr.Val[:1] != "#" {
+		if attr.Key == name && len(attr.Val) < 4 {
+			return "", false
+		}
+
+		if attr.Key == name && (attr.Val[:1] == "/" || attr.Val[:4] == "http" || attr.Val[:5] == "https") {
 			return attr.Val, true
 		}
 	}
 
 	return "", false
+}
+
+func fetchInternalLinkWorker(path string, url *url.URL, c chan<- Link) {
+	link := path
+	var l Link
+
+	if link[:1] == "/" {
+		link = url.Scheme + "://" + url.Host + path
+	}
+
+	t := time.Now()
+	fmt.Println("Fetching: ", link)
+	res, err := http.Get(link)
+	fmt.Println("")
+
+	if err != nil {
+		fmt.Println(err)
+		l = Link{Url: link, Status: 0, Duration: time.Since(t)}
+	}
+
+	if err == nil {
+		l = Link{Url: link, Status: res.StatusCode, Duration: time.Since(t)}
+	}
+
+	c <- l
 }
 
 var domain string
@@ -79,24 +109,7 @@ func main() {
 		if n.Type == html.ElementNode && n.Data == "a" {
 			attrUrl, ok := GetAttribute(n, "href")
 			if ok {
-				go func(path string, u *url.URL) {
-					link := path
-					if path[:1] == "/" {
-						link = u.Scheme + "://" + u.Host + path
-					}
-
-					t := time.Now()
-					fmt.Println("Fetching: ", link)
-					res, err := http.Get(link)
-					fmt.Println("")
-
-					if err != nil {
-						panic(err)
-					}
-
-					linkChan <- Link{Url: link, Status: res.StatusCode, Duration: time.Since(t)}
-
-				}(attrUrl, parsedUrl)
+				go fetchInternalLinkWorker(attrUrl, parsedUrl, linkChan)
 			}
 		}
 	})
