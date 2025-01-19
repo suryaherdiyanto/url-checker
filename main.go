@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-type Link struct {
+type LinkResult struct {
 	Url      string
 	Status   int
 	Duration time.Duration
@@ -44,9 +44,9 @@ func GetAttribute(n *html.Node, name string) (string, bool) {
 	return "", false
 }
 
-func fetchInternalLinkWorker(path string, url *url.URL, c chan<- Link) {
+func fetchInternalLinkWorker(path string, url *url.URL, c chan<- LinkResult) {
 	link := path
-	var l Link
+	var result LinkResult
 
 	if link[:1] == "/" {
 		link = url.Scheme + "://" + url.Host + path
@@ -59,14 +59,14 @@ func fetchInternalLinkWorker(path string, url *url.URL, c chan<- Link) {
 
 	if err != nil {
 		fmt.Println(err)
-		l = Link{Url: link, Status: 0, Duration: time.Since(t)}
+		result = LinkResult{Url: link, Status: 0, Duration: time.Since(t)}
 	}
 
 	if err == nil {
-		l = Link{Url: link, Status: res.StatusCode, Duration: time.Since(t)}
+		result = LinkResult{Url: link, Status: res.StatusCode, Duration: time.Since(t)}
 	}
 
-	c <- l
+	c <- result
 }
 
 var domain string
@@ -104,7 +104,7 @@ func main() {
 		panic(err)
 	}
 
-	var linkChan = make(chan Link, 8)
+	var linkChan = make(chan LinkResult, 8)
 	TraverseDescendants(doc, func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
 			attrUrl, ok := GetAttribute(n, "href")
