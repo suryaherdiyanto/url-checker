@@ -106,6 +106,8 @@ func main() {
 	fmt.Println("")
 
 	var isBreak bool
+	var brokenCount int
+	var okCount int
 
 	fmt.Printf("Results:")
 	for {
@@ -116,10 +118,19 @@ func main() {
 
 		select {
 		case v := <-linkChan:
+			if v.Status == http.StatusOK || v.Status == http.StatusPermanentRedirect {
+				okCount += 1
+			}
+			if v.Status > 400 || v.Status > 500 {
+				brokenCount += 1
+			}
+
 			fmt.Printf("URL: %s, status: %d duration: %v\n", v.Url, v.Status, v.Duration)
 		case <-time.After(2 * time.Second):
 			fmt.Println("================")
 			fmt.Println("Done")
+			fmt.Println("Ok URLs: ", okCount)
+			fmt.Println("Broken URLs: ", brokenCount)
 			isBreak = true
 			break
 		}
