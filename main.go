@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"net/url"
+
 	"golang.org/x/net/html"
 )
 
@@ -36,26 +38,32 @@ func GetAttribute(n *html.Node, name string) (string, bool) {
 	return "", false
 }
 
-func main() {
-	url := os.Args[1]
+var domain string
 
-	if url == "" {
+func main() {
+	inputUrl := os.Args[1]
+
+	if inputUrl == "" {
 		fmt.Println("URL not provided")
 		os.Exit(1)
 	}
 
-	if len(url) <= 8 {
+	if len(inputUrl) <= 8 {
 		fmt.Println("Might not a valid URL")
 		os.Exit(1)
 	}
 
-	if url[:8] != "https://" && url[:7] != "http://" {
+	if inputUrl[:8] != "https://" && inputUrl[:7] != "http://" {
 		fmt.Println("URL is invalid")
 		os.Exit(1)
 	}
 
-	fmt.Println("Fetching: " + url)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	fmt.Println("Fetching: " + inputUrl)
+	parsedUrl, _ := url.Parse(inputUrl)
+	domain := parsedUrl.Host
+	fmt.Println(domain)
+
+	req, err := http.NewRequest(http.MethodGet, inputUrl, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -74,8 +82,8 @@ func main() {
 
 	TraverseDescendants(doc, func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
-			url, _ = GetAttribute(n, "href")
-			fmt.Println(url)
+			attr, _ := GetAttribute(n, "href")
+			fmt.Println(attr)
 		}
 	})
 }
