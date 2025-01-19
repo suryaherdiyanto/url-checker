@@ -63,16 +63,10 @@ func main() {
 	domain := parsedUrl.Host
 	fmt.Println(domain)
 
-	req, err := http.NewRequest(http.MethodGet, inputUrl, nil)
+	res, err := http.Get(inputUrl)
 	if err != nil {
 		panic(err)
 	}
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-
 	fmt.Println(res.Status)
 
 	doc, err := html.Parse(res.Body)
