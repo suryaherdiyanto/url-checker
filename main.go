@@ -8,6 +8,34 @@ import (
 	"golang.org/x/net/html"
 )
 
+type Link struct {
+	Url     string
+	Content string
+}
+
+func TraverseDescendants(n *html.Node, fn func(*html.Node)) {
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		fn(c)
+		if n.Type != html.ErrorNode {
+			TraverseDescendants(c, fn)
+		}
+	}
+}
+
+func GetAttribute(n *html.Node, name string) (string, bool) {
+	for _, attr := range n.Attr {
+		if attr.Key == "role" && attr.Val == "button" {
+			continue
+		}
+
+		if attr.Key == name && attr.Val != "#" && attr.Val != "javascript:void(0)" && attr.Val[:1] != "#" {
+			return attr.Val, true
+		}
+	}
+
+	return "", false
+}
+
 func main() {
 	url := os.Args[1]
 
@@ -40,6 +68,14 @@ func main() {
 	fmt.Println(res.Status)
 
 	doc, err := html.Parse(res.Body)
-	fmt.Println(doc)
+	if err != nil {
+		panic(err)
+	}
 
+	TraverseDescendants(doc, func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			url, _ = GetAttribute(n, "href")
+			fmt.Println(url)
+		}
+	})
 }
