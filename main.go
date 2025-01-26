@@ -144,7 +144,7 @@ func main() {
 			if v.Status == http.StatusOK || v.Status == http.StatusPermanentRedirect {
 				okCount += 1
 			}
-			if v.Status > 400 || v.Status > 500 {
+			if v.Status == 0 || v.Status > 400 || v.Status > 500 {
 				brokenCount += 1
 			}
 
