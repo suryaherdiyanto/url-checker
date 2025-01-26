@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"golang.org/x/net/html"
 )
 
@@ -55,7 +57,6 @@ func fetchInternalLinkWorker(path string, url *url.URL, c chan<- LinkResult) {
 	t := time.Now()
 	fmt.Println("Fetching: ", link)
 	res, err := http.Get(link)
-	fmt.Println("")
 
 	if err != nil {
 		fmt.Println(err)
@@ -105,10 +106,12 @@ func main() {
 	}
 
 	var linkChan = make(chan LinkResult, 8)
+	urls := 0
 	TraverseDescendants(doc, func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "a" {
 			attrUrl, ok := GetAttribute(n, "href")
 			if ok {
+				urls += 0
 				go fetchInternalLinkWorker(attrUrl, parsedUrl, linkChan)
 			}
 		}
@@ -122,7 +125,14 @@ func main() {
 	var brokenCount int
 	var okCount int
 
-	fmt.Printf("Results:")
+	fmt.Println("Results:")
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"#", "URL", "Status", "Duration"})
+	t.SetOutputMirror(os.Stdout)
+	t.SetAutoIndex(true)
+	t.SetAllowedRowLength(90)
+	t.SetStyle(table.StyleColoredBright)
+
 	for {
 		if isBreak {
 			close(linkChan)
@@ -138,15 +148,14 @@ func main() {
 				brokenCount += 1
 			}
 
-			fmt.Printf("URL: %s, status: %d duration: %v\n", v.Url, v.Status, v.Duration)
+			t.AppendRow(table.Row{"", text.WrapSoft(v.Url, 40), v.Status, v.Duration})
+			t.AppendSeparator()
 		case <-time.After(2 * time.Second):
-			fmt.Println("================")
+			t.AppendFooter(table.Row{"", "Results: ", fmt.Sprintf("Ok URLs: %d", okCount), fmt.Sprintf("Broken URLs: %d", brokenCount)})
+			t.Render()
 			fmt.Println("Done")
-			fmt.Println("Ok URLs: ", okCount)
-			fmt.Println("Broken URLs: ", brokenCount)
 			isBreak = true
 			break
 		}
 	}
-
 }
