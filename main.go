@@ -50,7 +50,11 @@ func fetchInternalLinkWorker(path string, url *url.URL, c chan<- LinkResult) {
 	link := path
 	var result LinkResult
 
-	if link[:1] == "/" {
+	if link[:2] == "//" {
+		link = url.Scheme + link
+	}
+
+	if link[:1] == "/" && link[:2] != "//" {
 		link = url.Scheme + "://" + url.Host + path
 	}
 
