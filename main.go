@@ -18,6 +18,9 @@ type LinkResult struct {
 	Duration time.Duration
 }
 
+var urls []string
+var domain string
+
 func TraverseDescendants(n *html.Node, fn func(*html.Node)) {
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		fn(c)
@@ -74,7 +77,26 @@ func fetchInternalLinkWorker(path string, url *url.URL, c chan<- LinkResult) {
 	c <- result
 }
 
-var domain string
+func IsDuplicateUrl(url string) bool {
+	for _, u := range urls {
+		if u == url {
+			return true
+		}
+	}
+
+	return false
+}
+
+func ExtractURLs(doc *html.Node) {
+	TraverseDescendants(doc, func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "a" {
+			attrUrl, ok := GetAttribute(n, "href")
+			if ok && !IsDuplicateUrl(attrUrl) {
+				urls = append(urls, attrUrl)
+			}
+		}
+	})
+}
 
 func main() {
 	inputUrl := os.Args[1]
@@ -109,17 +131,13 @@ func main() {
 		panic(err)
 	}
 
+	ExtractURLs(doc)
+
 	var linkChan = make(chan LinkResult, 8)
-	urls := 0
-	TraverseDescendants(doc, func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "a" {
-			attrUrl, ok := GetAttribute(n, "href")
-			if ok {
-				urls += 0
-				go fetchInternalLinkWorker(attrUrl, parsedUrl, linkChan)
-			}
-		}
-	})
+
+	for _, u := range urls {
+		go fetchInternalLinkWorker(u, parsedUrl, linkChan)
+	}
 
 	fmt.Println("==================")
 	fmt.Println("==================")
